@@ -1,0 +1,1 @@
+"""Auxiliary service - main application."""

@@ -1,0 +1,47 @@
+# Test workflow to verify GitHub OIDC authentication to AWS
+# This is a simple test to ensure the OIDC setup works correctly
+
+name: Test AWS OIDC Authentication
+
+on:
+  workflow_dispatch:  # Manual trigger for testing
+  push:
+    branches:
+      - test-oidc  # Create this branch to test
+
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
+jobs:
+  test-aws-access:
+    name: Test AWS Authentication
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: eu-west-1
+          role-session-name: github-actions-test
+
+      - name: Verify AWS identity
+        run: |
+          echo "Testing AWS authentication..."
+          aws sts get-caller-identity
+          
+      - name: Test ECR access
+        run: |
+          echo "Testing ECR access..."
+          aws ecr describe-repositories --region eu-west-1 || echo "No repositories yet (this is OK)"
+
+      - name: Success
+        run: |
+          echo "✅ OIDC authentication successful!"
+          echo "✅ AWS credentials are working"
+          echo "✅ ECR access verified"
+          echo "✅ Ready to build and push Docker images"

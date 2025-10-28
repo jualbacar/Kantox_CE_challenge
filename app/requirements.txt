@@ -1,0 +1,19 @@
+# Python dependencies for Kantox API and Auxiliary services
+# Compatible with Python 3.14
+
+# Web framework
+fastapi>=0.115.0,<0.116.0
+uvicorn[standard]>=0.30.0,<0.33.0
+
+# AWS SDK
+boto3>=1.35.0,<1.36.0
+
+# Data validation - using compatible versions with pre-built wheels
+pydantic>=2.8.0,<3.0.0
+pydantic-settings>=2.4.0,<3.0.0
+
+# File handling
+python-multipart>=0.0.9,<0.1.0
+
+# Utilities
+python-dateutil>=2.9.0,<3.0.0
