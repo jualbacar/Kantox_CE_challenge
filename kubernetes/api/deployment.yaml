@@ -28,7 +28,7 @@ spec:
       - name: ecr-registry-secret
       containers:
       - name: api
-        image: 035895024082.dkr.ecr.eu-west-1.amazonaws.com/kantox-api:sha-791611c
+        image: 035895024082.dkr.ecr.eu-west-1.amazonaws.com/kantox-api:sha-f07ee6a
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
