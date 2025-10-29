@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: aux
-        image: PLACEHOLDER_ECR_REGISTRY/kantox-aux:latest
+        image: 035895024082.dkr.ecr.eu-west-1.amazonaws.com/kantox-aux:sha-791611c
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
