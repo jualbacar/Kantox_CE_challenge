@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from common.config import settings
+from common.version import router as version_router
 from aux.routers import health, config
 
 # Configure logging
@@ -33,6 +34,7 @@ app.add_middleware(
 # Include routers (no storage router - respects IAM permissions)
 app.include_router(health.router, tags=["health"])
 app.include_router(config.router, tags=["config"])
+app.include_router(version_router)
 
 
 @app.on_event("startup")
@@ -55,6 +57,7 @@ async def root():
         "endpoints": {
             "health": "/health",
             "config": "/config",
+            "version": "/version",
             "docs": "/docs",
         }
     }

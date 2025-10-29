@@ -1,0 +1,154 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ci-cd.yml'
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY_API: kantox-api
+  ECR_REPOSITORY_AUX: kantox-aux
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: write   # Required to push manifest updates
+
+jobs:
+  build-and-deploy:
+    name: Build, Push, and Update Manifests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata for API
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_API }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest-${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.title=Kantox API Service
+            org.opencontainers.image.description=FastAPI service for Kantox challenge
+            org.opencontainers.image.vendor=Kantox
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: ./app/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          build-args: |
+            SERVICE=api
+            VERSION=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+          provenance: false
+
+      - name: Extract metadata for AUX
+        id: meta-aux
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_AUX }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest-${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.title=Kantox AUX Service
+            org.opencontainers.image.description=Auxiliary FastAPI service for Kantox challenge
+            org.opencontainers.image.vendor=Kantox
+
+      - name: Build and push AUX image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: ./app/Dockerfile
+          push: true
+          tags: ${{ steps.meta-aux.outputs.tags }}
+          labels: ${{ steps.meta-aux.outputs.labels }}
+          build-args: |
+            SERVICE=aux
+            VERSION=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha,scope=aux
+          cache-to: type=gha,mode=max,scope=aux
+          provenance: false
+
+      - name: Update Kubernetes manifests
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          
+          echo "Updating manifests with image tag: sha-${SHORT_SHA}"
+          
+          # Update API deployment
+          sed -i "s|image: .*kantox-api:.*|image: ${ECR_REGISTRY}/${{ env.ECR_REPOSITORY_API }}:sha-${SHORT_SHA}|g" \
+            kubernetes/api/deployment.yaml
+          
+          # Update AUX deployment
+          sed -i "s|image: .*kantox-aux:.*|image: ${ECR_REGISTRY}/${{ env.ECR_REPOSITORY_AUX }}:sha-${SHORT_SHA}|g" \
+            kubernetes/aux/deployment.yaml
+          
+          echo "Updated images:"
+          grep "image:" kubernetes/api/deployment.yaml | head -1
+          grep "image:" kubernetes/aux/deployment.yaml | head -1
+
+      - name: Commit and push manifest changes
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          git add kubernetes/api/deployment.yaml kubernetes/aux/deployment.yaml
+          
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "build: update images to sha-${SHORT_SHA}" \
+              -m "API: ${{ env.ECR_REPOSITORY_API }}:sha-${SHORT_SHA}" \
+              -m "AUX: ${{ env.ECR_REPOSITORY_AUX }}:sha-${SHORT_SHA}" \
+              -m "Built from: ${{ github.sha }}"
+            git push
+            echo "✅ Manifest changes committed and pushed"
+          fi
+
+      - name: Summary
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Images Built and Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "- **API**: \`${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_API }}:sha-${SHORT_SHA}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **AUX**: \`${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_AUX }}:sha-${SHORT_SHA}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "ArgoCD will automatically sync the new images to the cluster." >> $GITHUB_STEP_SUMMARY

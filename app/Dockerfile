@@ -31,14 +31,18 @@ ENV PATH=/root/.local/bin:$PATH
 # Copy common shared code
 COPY common/ ./common/
 
-# Build argument to determine which service to run
+# Build arguments
 ARG SERVICE=api
+ARG VERSION=unknown
+ARG BUILD_TIME=unknown
 
 # Copy specific service code
 COPY ${SERVICE}/ ./${SERVICE}/
 
 # Set environment variables
 ENV SERVICE_NAME=${SERVICE}
+ENV VERSION=${VERSION}
+ENV BUILD_TIME=${BUILD_TIME}
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
