@@ -3,17 +3,54 @@ import logging
 from typing import Dict, List, Optional, Any
 import boto3
 from botocore.exceptions import ClientError
+import os
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
 
+def get_aws_session():
+    """
+    Get AWS session with assumed role if AWS_ROLE_ARN is set.
+    Falls back to default credentials if no role is specified.
+    """
+    role_arn = os.getenv('AWS_ROLE_ARN')
+    
+    if role_arn:
+        logger.info(f"Assuming role: {role_arn}")
+        sts_client = boto3.client('sts', region_name=settings.aws_region)
+        
+        try:
+            response = sts_client.assume_role(
+                RoleArn=role_arn,
+                RoleSessionName=f"{settings.service_name}-session"
+            )
+            
+            credentials = response['Credentials']
+            session = boto3.Session(
+                aws_access_key_id=credentials['AccessKeyId'],
+                aws_secret_access_key=credentials['SecretAccessKey'],
+                aws_session_token=credentials['SessionToken'],
+                region_name=settings.aws_region
+            )
+            logger.info("Successfully assumed role")
+            return session
+            
+        except ClientError as e:
+            logger.error(f"Failed to assume role {role_arn}: {e}")
+            raise
+    else:
+        logger.info("No role ARN specified, using default credentials")
+        return boto3.Session(region_name=settings.aws_region)
+
+
 class S3Client:
     """Wrapper for AWS S3 operations."""
     
     def __init__(self):
-        self.client = boto3.client('s3', region_name=settings.aws_region)
+        session = get_aws_session()
+        self.client = session.client('s3', region_name=settings.aws_region)
     
     def list_buckets(self) -> List[Dict[str, Any]]:
         """List all S3 buckets in the AWS account."""
@@ -36,7 +73,8 @@ class SSMClient:
     """Wrapper for AWS Systems Manager Parameter Store operations."""
     
     def __init__(self):
-        self.client = boto3.client('ssm', region_name=settings.aws_region)
+        session = get_aws_session()
+        self.client = session.client('ssm', region_name=settings.aws_region)
     
     def get_parameter(self, name: str, with_decryption: bool = True) -> Optional[str]:
         """Get a single parameter from SSM Parameter Store."""
