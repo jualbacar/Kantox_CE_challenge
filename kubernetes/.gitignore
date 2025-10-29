@@ -1,0 +1,4 @@
+# Generated secret files - DO NOT commit# Ignore actual secrets files (not templates)
+
+*-aws-credentials-secret.yaml**
+*-aws-credentials-secret.yaml

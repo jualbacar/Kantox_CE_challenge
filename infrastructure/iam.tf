@@ -1,24 +1,38 @@
 data "aws_caller_identity" "current" {}
 
-# IAM role for API namespace service accounts with S3 access
-resource "aws_iam_role" "api_namespace_role" {
-  name = "${var.project_name}-api-namespace-role-${var.aws_region}"
+# ============================================================================
+# BASE IAM USER - For Minikube pods to assume service roles
+# ============================================================================
+# This user has minimal permissions - only to assume service-specific roles
+# Credentials will be stored in Kubernetes secrets and injected into pods
 
-  assume_role_policy = jsonencode({
+resource "aws_iam_user" "minikube_base" {
+  name = "${var.project_name}-minikube-base-${var.environment}"
+
+  tags = merge(var.tags, {
+    Purpose = "Base user for Minikube pods to assume service roles"
+  })
+}
+
+resource "aws_iam_access_key" "minikube_base" {
+  user = aws_iam_user.minikube_base.name
+}
+
+# Policy allowing base user to assume service roles
+resource "aws_iam_policy" "assume_service_roles" {
+  name        = "${var.project_name}-assume-service-roles-${var.environment}"
+  description = "Allow assuming service-specific IAM roles"
+
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow"
-        Principal = {
-          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "${var.oidc_provider}:sub" = "system:serviceaccount:api:${var.api_service_account_name}"
-            "${var.oidc_provider}:aud" = "sts.amazonaws.com"
-          }
-        }
+        Action = "sts:AssumeRole"
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-api-role-${var.environment}",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-aux-role-${var.environment}"
+        ]
       }
     ]
   })
@@ -26,10 +40,43 @@ resource "aws_iam_role" "api_namespace_role" {
   tags = var.tags
 }
 
-# S3 access policy for API namespace
+resource "aws_iam_user_policy_attachment" "minikube_base_assume" {
+  user       = aws_iam_user.minikube_base.name
+  policy_arn = aws_iam_policy.assume_service_roles.arn
+}
+
+# ============================================================================
+# IAM ROLES - Service-specific roles with actual permissions
+# ============================================================================
+
+# IAM role for API service with S3 access
+# For Minikube: Base IAM user can assume this role
+# For EKS: Would add OIDC trust policy (commented out for future use)
+resource "aws_iam_role" "api_namespace_role" {
+  name = "${var.project_name}-api-role-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_user.minikube_base.arn
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = merge(var.tags, {
+    Service = "api"
+  })
+}
+
+# S3 access policy for API service
 resource "aws_iam_policy" "api_s3_access" {
-  name        = "${var.project_name}-api-s3-access-${var.aws_region}"
-  description = "Allow API namespace pods to access S3 buckets"
+  name        = "${var.project_name}-api-s3-access-${var.environment}"
+  description = "Allow API service to access S3 buckets"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -53,10 +100,10 @@ resource "aws_iam_policy" "api_s3_access" {
   tags = var.tags
 }
 
-# SSM parameter access policy for API namespace
+# SSM parameter access policy for API service
 resource "aws_iam_policy" "api_ssm_access" {
-  name        = "${var.project_name}-api-ssm-access-${var.aws_region}"
-  description = "Allow API namespace pods to read SSM parameters"
+  name        = "${var.project_name}-api-ssm-access-${var.environment}"
+  description = "Allow API service to read SSM parameters"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -86,9 +133,11 @@ resource "aws_iam_role_policy_attachment" "api_ssm_attach" {
   policy_arn = aws_iam_policy.api_ssm_access.arn
 }
 
-# IAM role for AUX namespace service accounts (no S3 access)
+# IAM role for AUX service (no S3 access)
+# For Minikube: Base IAM user can assume this role
+# For EKS: Would add OIDC trust policy (commented out for future use)
 resource "aws_iam_role" "aux_namespace_role" {
-  name = "${var.project_name}-aux-namespace-role-${var.aws_region}"
+  name = "${var.project_name}-aux-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -96,26 +145,22 @@ resource "aws_iam_role" "aux_namespace_role" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${var.oidc_provider}"
+          AWS = aws_iam_user.minikube_base.arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "${var.oidc_provider}:sub" = "system:serviceaccount:aux:${var.aux_service_account_name}"
-            "${var.oidc_provider}:aud" = "sts.amazonaws.com"
-          }
-        }
+        Action = "sts:AssumeRole"
       }
     ]
   })
 
-  tags = var.tags
+  tags = merge(var.tags, {
+    Service = "aux"
+  })
 }
 
-# SSM parameter access policy for AUX namespace
+# SSM parameter access policy for AUX service
 resource "aws_iam_policy" "aux_ssm_access" {
-  name        = "${var.project_name}-aux-ssm-access-${var.aws_region}"
-  description = "Allow AUX namespace pods to read SSM parameters"
+  name        = "${var.project_name}-aux-ssm-access-${var.environment}"
+  description = "Allow AUX service to read SSM parameters"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -140,3 +185,23 @@ resource "aws_iam_role_policy_attachment" "aux_ssm_attach" {
   policy_arn = aws_iam_policy.aux_ssm_access.arn
 }
 
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+
+output "minikube_base_credentials" {
+  description = "Base credentials for Minikube (store in K8s secret)"
+  value = {
+    access_key_id     = aws_iam_access_key.minikube_base.id
+    secret_access_key = aws_iam_access_key.minikube_base.secret
+  }
+  sensitive = true
+}
+
+output "service_role_arns" {
+  description = "ARNs of service roles to assume from pods"
+  value = {
+    api_role_arn = aws_iam_role.api_namespace_role.arn
+    aux_role_arn = aws_iam_role.aux_namespace_role.arn
+  }
+}

@@ -1,5 +1,5 @@
 # Python dependencies for Kantox API and Auxiliary services
-# Compatible with Python 3.14
+# Compatible with Python 3.12
 
 # Web framework
 fastapi>=0.115.0,<0.116.0

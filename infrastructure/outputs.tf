@@ -27,11 +27,3 @@ output "ssm_parameter_arns" {
   description = "Map of SSM parameter ARNs"
   value       = { for k, v in module.ssm_parameter : k => v.ssm_parameter_arn }
 }
-
-output "iam_roles" {
-  description = "IAM role ARNs for Kubernetes service accounts"
-  value = {
-    api_namespace_role = aws_iam_role.api_namespace_role.arn
-    aux_namespace_role = aws_iam_role.aux_namespace_role.arn
-  }
-}

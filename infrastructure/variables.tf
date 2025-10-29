@@ -39,24 +39,7 @@ variable "ssm_parameters" {
   # Cannot mark this as sensitive because it's used in for_each
 }
 
-variable "oidc_provider" {
-  description = "OIDC provider URL for K8s (without https://)"
-  type        = string
-  default     = "localhost"
-}
-
-variable "api_service_account_name" {
-  description = "Service account name for API namespace"
-  type        = string
-  default     = "api-sa"
-}
-
-variable "aux_service_account_name" {
-  description = "Service account name for AUX namespace"
-  type        = string
-  default     = "aux-sa"
-}
-
+# GitHub-specific variables for OIDC authentication in CI/CD
 variable "github_org" {
   description = "GitHub organization or username"
   type        = string

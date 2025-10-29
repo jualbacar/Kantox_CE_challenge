@@ -1,5 +1,6 @@
-aws_region  = "eu-west-1"
-environment = "qa"
+aws_region   = "eu-west-1"
+environment  = "qa"
+project_name = "kantox"
 
 s3_buckets = {
   data = {
@@ -34,4 +35,6 @@ ssm_parameters = {
   }
 }
 
-oidc_provider = "localhost"
+github_org  = "jualbacar"
+github_repo = "Kantox_CE_challenge"
+
