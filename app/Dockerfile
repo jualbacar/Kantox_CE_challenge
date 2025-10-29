@@ -22,14 +22,18 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
 # Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 
 # Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Copy common shared code
-COPY common/ ./common/
+COPY --chown=appuser:appuser common/ ./common/
 
 # Build arguments
 ARG SERVICE=api
@@ -37,7 +41,7 @@ ARG VERSION=unknown
 ARG BUILD_TIME=unknown
 
 # Copy specific service code
-COPY ${SERVICE}/ ./${SERVICE}/
+COPY --chown=appuser:appuser ${SERVICE}/ ./${SERVICE}/
 
 # Set environment variables
 ENV SERVICE_NAME=${SERVICE}
@@ -45,6 +49,9 @@ ENV VERSION=${VERSION}
 ENV BUILD_TIME=${BUILD_TIME}
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8080
