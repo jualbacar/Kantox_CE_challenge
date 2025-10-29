@@ -1,27 +1,50 @@
-# Kantox Cloud Engineer Challenge - Application
+# Kantox Application Services
 
-This directory contains the Python FastAPI microservices for the Kantox Cloud Engineer technical challenge.
+Two Python FastAPI microservices with different IAM permissions demonstrating least privilege access patterns.
 
-## Architecture
+## Services
 
-Two microservices with different IAM permissions:
+### API Service (port 8080)
+**Namespace**: `api`  
+**IAM Permissions**: S3 + SSM Parameter Store  
+**Replicas**: 2
 
-### 1. **API Service** (api namespace)
-- **IAM Permissions**: S3 (list buckets) + SSM Parameter Store (read)
-- **Endpoints**:
-  - `GET /health` - Health check
-  - `GET /config` - List all SSM parameters
-  - `GET /config/{parameter_name}` - Get specific parameter value
-  - `GET /storage` - List all S3 buckets in AWS account
+**Endpoints**:
+- `GET /health` - Health check with service info
+- `GET /storage` - List all S3 buckets in AWS account
+- `GET /config` - List all SSM parameters
+- `GET /config/{parameter_name}` - Get specific SSM parameter value
+- `GET /docs` - OpenAPI documentation
 
-### 2. **Auxiliary Service** (aux namespace)
-- **IAM Permissions**: SSM Parameter Store (read only) - **NO S3 ACCESS**
-- **Endpoints**:
-  - `GET /health` - Health check
-  - `GET /config` - List all SSM parameters
-  - `GET /config/{parameter_name}` - Get specific parameter value
+### Auxiliary Service (port 8080)
+**Namespace**: `aux`  
+**IAM Permissions**: SSM Parameter Store only (no S3 access)  
+**Replicas**: 1
 
-## Project Structure
+**Endpoints**:
+- `GET /health` - Health check with service info
+- `GET /config` - List all SSM parameters
+- `GET /config/{parameter_name}` - Get specific SSM parameter value
+- `GET /docs` - OpenAPI documentation
+
+## AWS Access Pattern
+
+Both services use **IAM role assumption** for AWS access:
+
+1. **Base Credentials**: Pods start with minimal IAM user credentials
+   - Can only assume service-specific roles
+   - Injected via Kubernetes secrets
+
+2. **Role Assumption**: Application checks for `AWS_ROLE_ARN` environment variable
+   - Uses base credentials to call STS AssumeRole
+   - Gets temporary credentials with full permissions
+   - Temporary credentials are cached in memory
+
+3. **AWS Operations**: All AWS SDK calls use the temporary credentials
+   - S3 operations (API service only)
+   - SSM Parameter Store operations (both services)
+
+This pattern follows AWS security best practices for least privilege access.
 
 ```
 app/
@@ -53,7 +76,7 @@ app/
 
 ## Building Docker Images
 
-The same Dockerfile builds both services using the `SERVICE` build argument:
+The Dockerfile builds both services and runs as a non-root user (UID 1000) for security.
 
 ### Build API Service
 ```bash
@@ -65,6 +88,19 @@ docker build --build-arg SERVICE=api -t kantox-api:latest .
 docker build --build-arg SERVICE=aux -t kantox-aux:latest .
 ```
 
+### Push to ECR
+```bash
+# Login to ECR
+aws ecr get-login-password --region eu-west-1 | \
+  docker login --username AWS --password-stdin <account-id>.dkr.ecr.eu-west-1.amazonaws.com
+
+# Tag and push
+docker tag kantox-api:latest <account-id>.dkr.ecr.eu-west-1.amazonaws.com/kantox-api:latest
+docker push <account-id>.dkr.ecr.eu-west-1.amazonaws.com/kantox-api:latest
+```
+
+Note: In production, GitHub Actions handles building and pushing images automatically.
+
 ## Running Locally
 
 ### Prerequisites
@@ -75,14 +111,21 @@ docker build --build-arg SERVICE=aux -t kantox-aux:latest .
 ### Environment Variables
 
 ```bash
-# Service identification
+# Required - Service identification
 export SERVICE_NAME=api                      # or "aux"
 export ENVIRONMENT=dev                       # dev, qa, prod
 export AWS_REGION=eu-west-1
 
+# Required - AWS Credentials
+export AWS_ACCESS_KEY_ID=<your-key>
+export AWS_SECRET_ACCESS_KEY=<your-secret>
+export AWS_ROLE_ARN=<role-arn-to-assume>    # Service-specific role ARN
+
 # Optional
-export LOG_LEVEL=INFO
+export LOG_LEVEL=INFO                        # DEBUG, INFO, WARNING, ERROR
 ```
+
+The application will automatically assume the role specified in `AWS_ROLE_ARN` using the base credentials.
 
 ### Install Dependencies
 
@@ -171,22 +214,35 @@ curl http://localhost:8080/storage
 
 ## Deployment to Kubernetes
 
-See the `kubernetes/` directory for deployment manifests that integrate with:
-- IAM roles created by Terraform
-- Service accounts with IRSA annotations
-- ConfigMaps for environment-specific configuration
+Both services are deployed via ArgoCD with GitOps practices:
+
+### Deployment Configuration
+- **Image Pull**: Uses ECR registry secrets
+- **AWS Credentials**: Injected via Kubernetes secrets
+- **Role ARN**: Set via environment variables in deployments
+- **Security Context**: Runs as non-root user (UID 1000)
+- **Health Checks**: Liveness and readiness probes on `/health`
+- **Resources**: CPU and memory limits defined
+
+### Kubernetes Resources
+- Namespace: `api` or `aux`
+- Deployment: 2 replicas (API), 1 replica (AUX)
+- Service: ClusterIP on port 80
+- ConfigMap: Environment-specific configuration
+- Secret: AWS credentials for role assumption
+
+See `../kubernetes/` directory for complete manifests.
 
 ## Key Design Decisions
 
-1. **Single Dockerfile**: Uses `ARG SERVICE` to build both services, reducing duplication
-2. **Shared Common Module**: AWS clients and config logic reused by both services
-3. **IAM-Aware Design**: Auxiliary service deliberately excludes S3 endpoints to respect IAM restrictions
-4. **Simplified API**: 
-   - S3: Lists all buckets in AWS account (no object-level operations)
-   - SSM: Two operations only - list all parameters, get specific parameter value
-5. **Environment-Based Config**: All configuration via environment variables (12-factor app)
-6. **Health Checks**: Built-in liveness/readiness probes for Kubernetes
-7. **FastAPI**: Automatic OpenAPI docs, type validation, async support
+1. **IAM Role Assumption**: Services assume IAM roles for AWS access instead of using long-lived credentials
+2. **Single Dockerfile**: Uses `ARG SERVICE` to build both services, reducing duplication
+3. **Shared Common Module**: AWS clients and config logic reused by both services
+4. **Non-Root Security**: Containers run as UID 1000 for better security posture
+5. **Service Separation**: Auxiliary service excludes S3 endpoints to respect IAM restrictions
+6. **Environment-Based Config**: All configuration via environment variables (12-factor app)
+7. **Health Checks**: Built-in `/health` endpoint for Kubernetes liveness and readiness probes
+8. **FastAPI**: Provides automatic OpenAPI docs, type validation, and async support
 
 ## Technology Stack
 
@@ -198,7 +254,8 @@ See the `kubernetes/` directory for deployment manifests that integrate with:
 
 ## Notes
 
-- Import errors in the editor are expected until dependencies are installed
-- The auxiliary service will return errors if attempting to access S3 (by design)
-- Both services use the same base configuration but expose different capabilities
-- Container health checks use the `/health` endpoint
+- Services automatically assume IAM roles if `AWS_ROLE_ARN` is set
+- The auxiliary service will return errors if attempting to access S3 (by design - no permissions)
+- Both services use the same base configuration but expose different capabilities based on IAM permissions
+- Container health checks use the `/health` endpoint for Kubernetes probes
+- Images are automatically built and pushed by GitHub Actions on commits to main branch

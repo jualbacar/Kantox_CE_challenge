@@ -1,124 +1,126 @@
 # Kantox Infrastructure
 
-This Terraform configuration manages AWS resources for the Kantox challenge including S3 buckets, SSM parameters, and IAM roles for Kubernetes service accounts.
+Terraform configuration for AWS resources including S3 buckets, SSM parameters, ECR repositories, and IAM roles with proper role assumption pattern for Kubernetes workloads.
 
-## Structure
+## What Gets Created
 
-```
-infrastructure/
-├── main.tf              # Provider and Terraform configuration
-├── variables.tf         # Input variable declarations
-├── s3.tf               # S3 bucket creation using registry module
-├── parameter-store.tf   # SSM parameters using registry module
-├── iam.tf              # IAM roles for K8s service accounts
-├── outputs.tf          # Output values
-└── eu-west-1/          # Region-specific configurations
-    ├── dev/
-    │   └── dev.tfvars      # Development environment values
-    ├── qa/
-    │   └── qa.tfvars       # QA environment values
-    └── prod/
-        └── prod.tfvars     # Production environment values
-```
+### AWS Resources
 
-## Architecture
+**S3 Buckets** (per environment):
+- `kantox-data-{env}` - Application data storage
+- `kantox-logs-{env}` - Application logs
+- `kantox-backups-{env}` - Backup storage
+- All buckets have versioning and encryption enabled
 
-This infrastructure uses:
-- **Terraform Registry Modules**: `terraform-aws-modules/s3-bucket/aws` and `terraform-aws-modules/ssm-parameter/aws`
-- **for_each Loops**: Dynamic resource creation from data structures
-- **Terraform Workspaces**: Environment isolation using workspace feature
+**SSM Parameters** (per environment):
+- `/kantox/{env}/api/config` - API configuration
+- `/kantox/{env}/database/url` - Database connection string (encrypted)
+- `/kantox/{env}/features/flags` - Feature toggle configuration
 
-## Resources Created
+**ECR Repositories**:
+- `kantox-api` - API service Docker images
+- `kantox-aux` - Auxiliary service Docker images
+- Both with lifecycle policies to keep last 5 images
 
-Resources are defined per environment using tfvars files with `for_each` loops for dynamic creation.
+**IAM Resources**:
+- Base IAM user for Minikube (minimal permissions - can only assume roles)
+- API service role (S3 + SSM access)
+- Auxiliary service role (SSM access only)
+- GitHub Actions role (ECR push access via OIDC)
+- Policies for role assumption and resource access
 
-### S3 Buckets
-Environment-specific buckets (e.g., `kantox-data-dev-eu-west-1`, `kantox-logs-prod-eu-west-1`)
-- Data bucket - Application data storage
-- Logs bucket - Log storage
-- Backups bucket - Backup storage
+## IAM Role Assumption Pattern
 
-All buckets have versioning and encryption enabled.
+The infrastructure implements AWS security best practices for Kubernetes workloads:
 
-### SSM Parameters
-Environment-specific parameters (e.g., `/kantox/dev/api/config`, `/kantox/prod/database/url`)
-- API configuration - API settings
-- Database URL - Database connection (SecureString)
-- Feature flags - Feature toggle configuration
+**Base IAM User** (`kantox-minikube-base-{env}`):
+- Minimal permissions - can only assume service roles
+- Credentials stored in Kubernetes secrets
+- Injected into pods via environment variables
 
-### IAM Roles
-- **API Namespace Role** - Access to S3 buckets and SSM parameters
-- **AUX Namespace Role** - Access to SSM parameters only
+**Service Roles**:
+- `kantox-api-role-{env}` - Full S3 and SSM permissions
+- `kantox-aux-role-{env}` - SSM permissions only
+- Can be assumed by the base IAM user
 
-## Usage
+**Application Flow**:
+1. Pod starts with base user credentials
+2. Application reads `AWS_ROLE_ARN` environment variable
+3. Uses STS AssumeRole to get temporary credentials
+4. Uses temporary credentials for all AWS operations
 
-### Prerequisites
-- Terraform >= 1.5.0
-- AWS credentials configured
-- Minikube or local Kubernetes cluster
+This provides:
+- Least privilege access (base user has minimal permissions)
+- Temporary credentials (auto-rotating)
+- Service isolation (different roles per service)
+- Audit trail (STS assume role logged in CloudTrail)
 
-### Initialize and Deploy
+## Quick Start
 
-This infrastructure uses **Terraform workspaces** for environment management. All Terraform files (`.tf`) are shared in the root directory, and each environment has its own tfvars file.
-
-#### Initial Setup
+### Initial Setup
 
 ```bash
 cd infrastructure
 
-# Initialize Terraform (only needed once)
+# Initialize Terraform
 terraform init
+
+# Create dev workspace
+terraform workspace new dev
+
+# Preview changes
+terraform plan -var-file=eu-west-1/dev/dev.tfvars
+
+# Deploy
+terraform apply -var-file=eu-west-1/dev/dev.tfvars
 ```
 
-#### Working with Environments
+### Generate Kubernetes Secrets
+
+After Terraform deployment, generate the secrets needed for Kubernetes:
 
 ```bash
-# Create and switch to dev workspace
-terraform workspace new dev
-terraform plan -var-file=eu-west-1/dev/dev.tfvars
-terraform apply -var-file=eu-west-1/dev/dev.tfvars
-
-# Create and switch to qa workspace
-terraform workspace new qa
-terraform plan -var-file=eu-west-1/qa/qa.tfvars
-terraform apply -var-file=eu-west-1/qa/qa.tfvars
-
-# Create and switch to prod workspace
-terraform workspace new prod
-terraform plan -var-file=eu-west-1/prod/prod.tfvars
-terraform apply -var-file=eu-west-1/prod/prod.tfvars
+cd ..
+bash scripts/setup-k8s-secrets.sh
 ```
 
-#### Workspace Management
+This creates:
+- `infrastructure/kubernetes/api-aws-credentials-secret.yaml`
+- `infrastructure/kubernetes/aux-aws-credentials-secret.yaml`
+
+These files contain the base IAM user credentials and role ARNs. Apply them to your cluster:
+
+```bash
+kubectl apply -f infrastructure/kubernetes/api-aws-credentials-secret.yaml
+kubectl apply -f infrastructure/kubernetes/aux-aws-credentials-secret.yaml
+```
+
+**Important**: These secret files are gitignored and should never be committed.
+
+## Working with Environments
+
+Terraform workspaces provide environment isolation:
 
 ```bash
 # List all workspaces
 terraform workspace list
 
-# Show current workspace
-terraform workspace show
-
-# Switch to existing workspace
+# Switch to an environment
 terraform workspace select dev
-terraform workspace select qa
-terraform workspace select prod
 
-# Apply changes to current workspace
-terraform plan -var-file=eu-west-1/$(terraform workspace show)/$(terraform workspace show).tfvars
-terraform apply -var-file=eu-west-1/$(terraform workspace show)/$(terraform workspace show).tfvars
+# Create new environment
+terraform workspace new qa
+terraform apply -var-file=eu-west-1/qa/qa.tfvars
+
+# View current workspace
+terraform workspace show
 ```
 
-#### State File Organization
+Each workspace maintains its own state file in `terraform.tfstate.d/{workspace}/`.
 
-Terraform automatically manages state files per workspace:
-- Default workspace: `terraform.tfstate`
-- Named workspaces: `terraform.tfstate.d/dev/terraform.tfstate`, `terraform.tfstate.d/qa/terraform.tfstate`, etc.
+## Adding Resources
 
-This approach provides clean environment isolation without needing separate backend configurations or directories.
-
-### Adding New Resources
-
-Edit the appropriate tfvars file for your environment:
+To add new S3 buckets or SSM parameters, edit the appropriate tfvars file:
 
 ```hcl
 # In eu-west-1/dev/dev.tfvars
@@ -127,69 +129,70 @@ s3_buckets = {
   logs = { ... }
   backups = { ... }
   new_bucket = {
-    name               = "kantox-new-bucket-dev-eu-west-1"
+    name               = "kantox-new-bucket-dev"
     versioning_enabled = true
+  }
+}
+
+ssm_parameters = {
+  api_config = { ... }
+  database_url = { ... }
+  feature_flags = { ... }
+  new_param = {
+    name  = "/kantox/dev/new/parameter"
+    type  = "String"
+    value = "some-value"
   }
 }
 ```
 
-Then apply changes to that workspace:
+Then apply:
 
 ```bash
 terraform workspace select dev
-terraform plan -var-file=eu-west-1/dev/dev.tfvars
 terraform apply -var-file=eu-west-1/dev/dev.tfvars
 ```
 
-### Multi-Region Support
+## Viewing Outputs
 
-To deploy to a different region, create a new region directory structure:
-
-```bash
-cd infrastructure
-mkdir -p us-east-1/{dev,qa,prod}
-
-# Copy and edit config files from eu-west-1
-cp eu-west-1/dev/dev.tfvars us-east-1/dev/
-cp eu-west-1/qa/qa.tfvars us-east-1/qa/
-cp eu-west-1/prod/prod.tfvars us-east-1/prod/
-
-# Edit the tfvars files in us-east-1/
-# Update aws_region and resource names to reflect the new region
-```
-
-You can use the same workspace names but different var-files:
-
-```bash
-terraform workspace select dev
-terraform apply -var-file=us-east-1/dev/dev.tfvars
-```
-
-### Kubernetes Integration
-
-For local Minikube setup, the OIDC provider defaults to `localhost`. The IAM roles are configured to work with service accounts:
-
-- Namespace: `api`, Service Account: `api-sa` → Full S3 and SSM access
-- Namespace: `aux`, Service Account: `aux-sa` → SSM access only
-
-To use these roles in your pods, annotate the service accounts:
-
-```yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: api-sa
-  namespace: api
-  annotations:
-    eks.amazonaws.com/role-arn: <api_role_arn_from_output>
-```
-
-## Outputs
-
-After deployment, view outputs:
+After deployment, view important information:
 
 ```bash
 terraform output
+
+# View specific outputs
+terraform output s3_bucket_names
+terraform output service_role_arns
+
+# View sensitive outputs (IAM credentials)
+terraform output -json minikube_base_credentials
 ```
 
-This displays S3 bucket names, SSM parameter paths, and IAM role ARNs.
+Key outputs:
+- `s3_bucket_names` - Names of created S3 buckets
+- `s3_bucket_arns` - ARNs for IAM policies
+- `ssm_parameter_names` - Parameter Store paths
+- `service_role_arns` - IAM role ARNs for applications
+- `ecr_repository_urls` - Docker image registry URLs
+- `minikube_base_credentials` - Base IAM user credentials (sensitive)
+
+## File Structure
+
+```
+infrastructure/
+├── main.tf              # Provider and Terraform configuration
+├── variables.tf         # Input variable declarations
+├── s3.tf               # S3 buckets using registry module
+├── ecr.tf              # ECR repositories for Docker images
+├── parameter-store.tf   # SSM parameters using registry module
+├── iam.tf              # IAM users, roles, and policies
+├── github-oidc.tf      # GitHub Actions OIDC provider
+├── outputs.tf          # Output values
+└── eu-west-1/          # Region-specific configurations
+    ├── dev/
+    │   └── dev.tfvars
+    ├── qa/
+    │   └── qa.tfvars
+    └── prod/
+        └── prod.tfvars
+```
