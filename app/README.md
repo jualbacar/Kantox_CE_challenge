@@ -68,7 +68,7 @@ docker build --build-arg SERVICE=aux -t kantox-aux:latest .
 ## Running Locally
 
 ### Prerequisites
-- Python 3.12+
+- Python 3.14+
 - AWS credentials configured
 - Required environment variables
 
@@ -194,7 +194,7 @@ See the `kubernetes/` directory for deployment manifests that integrate with:
 - **Server**: Uvicorn with standard extras
 - **AWS SDK**: boto3 1.29.7
 - **Validation**: Pydantic 2.5.0
-- **Python**: 3.12
+- **Python**: 3.14
 
 ## Notes
 

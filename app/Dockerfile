@@ -1,7 +1,7 @@
 # Multi-stage build for smaller final image
 # Stage 1: Build dependencies
-# Using Python 3.12 slim image
-FROM python:3.12-slim AS builder
+# Using Python 3.14 slim image
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --user -r requirements.txt
 
 # Runtime stage
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
