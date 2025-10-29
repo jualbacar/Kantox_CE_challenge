@@ -106,7 +106,8 @@ curl http://localhost:8080/docs
 |-----------|--------------|-------------|
 | **Application** | [app/README.md](app/README.md) | FastAPI services, local development, Docker |
 | **Infrastructure** | [infrastructure/README.md](infrastructure/README.md) | Terraform configuration, AWS resources |
-| **GitHub Actions** | [infrastructure/GITHUB_OIDC_SETUP.md](infrastructure/GITHUB_OIDC_SETUP.md) | CI/CD pipeline, OIDC authentication |
+| **CI/CD Pipeline** | [.github/README.md](.github/README.md) | GitHub Actions workflow, automated builds |
+| **GitHub OIDC** | [infrastructure/GITHUB_OIDC_SETUP.md](infrastructure/GITHUB_OIDC_SETUP.md) | AWS authentication setup for CI/CD |
 | **Kubernetes/ArgoCD** | [kubernetes/argocd/README.md](kubernetes/argocd/README.md) | GitOps deployment, ArgoCD setup |
 
 ### Additional Documentation
@@ -132,7 +133,9 @@ GitHub Actions automatically:
 4. Updates Kubernetes manifests
 5. ArgoCD syncs changes automatically
 
-See [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml)
+📚 **See**: [CI/CD Pipeline Documentation](.github/README.md) for detailed workflow explanation
+
+**Workflow file**: [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml)
 
 ## Monitoring
 
