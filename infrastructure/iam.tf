@@ -140,7 +140,8 @@ resource "aws_iam_role_policy_attachment" "api_ssm_attach" {
   policy_arn = aws_iam_policy.api_ssm_access.arn
 }
 
-# IAM role for AUX service (no S3 access)
+# IAM role for AUX service (has both S3 and SSM access)
+# This is the internal service that handles all AWS operations
 # For Minikube: Base IAM user can assume this role
 # For EKS: Would add OIDC trust policy (commented out for future use)
 resource "aws_iam_role" "aux_namespace_role" {
@@ -164,6 +165,40 @@ resource "aws_iam_role" "aux_namespace_role" {
   })
 }
 
+# S3 access policy for AUX service
+resource "aws_iam_policy" "aux_s3_access" {
+  name        = "${var.project_name}-aux-s3-access-${var.environment}"
+  description = "Allow AUX service to access S3 buckets"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListAllMyBuckets"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = concat(
+          [for k, v in module.s3_bucket : v.s3_bucket_arn],
+          [for k, v in module.s3_bucket : "${v.s3_bucket_arn}/*"]
+        )
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
 # SSM parameter access policy for AUX service
 resource "aws_iam_policy" "aux_ssm_access" {
   name        = "${var.project_name}-aux-ssm-access-${var.environment}"
@@ -185,6 +220,11 @@ resource "aws_iam_policy" "aux_ssm_access" {
   })
 
   tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "aux_s3_attach" {
+  role       = aws_iam_role.aux_namespace_role.name
+  policy_arn = aws_iam_policy.aux_s3_access.arn
 }
 
 resource "aws_iam_role_policy_attachment" "aux_ssm_attach" {

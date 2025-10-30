@@ -5,8 +5,11 @@
 fastapi>=0.115.0,<0.116.0
 uvicorn[standard]>=0.30.0,<0.33.0
 
-# AWS SDK
+# AWS SDK (used by AUX service only)
 boto3>=1.35.0,<1.36.0
+
+# HTTP client (for API service to call AUX service)
+httpx>=0.27.0,<0.28.0
 
 # Data validation - using compatible versions with pre-built wheels
 pydantic>=2.8.0,<3.0.0

@@ -24,36 +24,44 @@ Terraform configuration for AWS resources including S3 buckets, SSM parameters, 
 
 **IAM Resources**:
 - Base IAM user for Minikube (minimal permissions - can only assume roles)
-- API service role (S3 + SSM access)
-- Auxiliary service role (SSM access only)
+- AUX service role (S3 + SSM access) - **only service with AWS permissions**
+- API service role (deprecated in v2.0.0 - API is now a gateway with no AWS access)
 - GitHub Actions role (ECR push access via OIDC)
 - Policies for role assumption and resource access
 
 ## IAM Role Assumption Pattern
 
-The infrastructure implements AWS security best practices for Kubernetes workloads:
+The infrastructure implements AWS security best practices with a **BFF/API Gateway architecture**:
+
+### Architecture Pattern (v2.0.0+)
+- **API Service**: Public gateway with **no AWS credentials** - proxies requests via HTTP
+- **AUX Service**: Internal backend with full AWS access - handles all AWS operations
+
+### IAM Structure
 
 **Base IAM User** (`kantox-minikube-base-{env}`):
-- Minimal permissions - can only assume service roles
-- Credentials stored in Kubernetes secrets
-- Injected into pods via environment variables
+- Minimal permissions - can only assume the AUX service role
+- Credentials stored in Kubernetes secret (AUX namespace only)
+- Injected into AUX pods via environment variables
 
 **Service Roles**:
-- `kantox-api-role-{env}` - Full S3 and SSM permissions
-- `kantox-aux-role-{env}` - SSM permissions only
-- Can be assumed by the base IAM user
+- `kantox-aux-role-{env}` - **Active** - Full S3 and SSM permissions
+- `kantox-api-role-{env}` - **Deprecated** - No longer used (API is now a gateway)
 
-**Application Flow**:
-1. Pod starts with base user credentials
+### Application Flow (AUX Service Only):
+1. AUX pod starts with base user credentials
 2. Application reads `AWS_ROLE_ARN` environment variable
 3. Uses STS AssumeRole to get temporary credentials
 4. Uses temporary credentials for all AWS operations
+5. API service connects to AUX via HTTP (no AWS credentials needed)
 
-This provides:
-- Least privilege access (base user has minimal permissions)
-- Temporary credentials (auto-rotating)
-- Service isolation (different roles per service)
-- Audit trail (STS assume role logged in CloudTrail)
+### Security Benefits:
+- **Reduced Attack Surface**: Only internal service has AWS credentials
+- **Least Privilege**: Base user can only assume one role
+- **Temporary Credentials**: Auto-rotating via STS
+- **Service Isolation**: Gateway and backend completely separated
+- **Audit Trail**: STS assume role logged in CloudTrail
+- **Zero Trust**: API service cannot access AWS even if compromised
 
 ## Quick Start
 
@@ -75,9 +83,9 @@ terraform plan -var-file=eu-west-1/dev/dev.tfvars
 terraform apply -var-file=eu-west-1/dev/dev.tfvars
 ```
 
-### Generate Kubernetes Secrets
+### Generate Kubernetes Secret
 
-After Terraform deployment, generate the secrets needed for Kubernetes:
+After Terraform deployment, generate the secret needed for the AUX service:
 
 ```bash
 cd ..
@@ -85,17 +93,18 @@ bash scripts/setup-k8s-secrets.sh
 ```
 
 This creates:
-- `infrastructure/kubernetes/api-aws-credentials-secret.yaml`
-- `infrastructure/kubernetes/aux-aws-credentials-secret.yaml`
+- `kubernetes/aux-aws-credentials-secret.yaml`
 
-These files contain the base IAM user credentials and role ARNs. Apply them to your cluster:
+This file contains the base IAM user credentials and AUX role ARN. Apply it to your cluster:
 
 ```bash
-kubectl apply -f infrastructure/kubernetes/api-aws-credentials-secret.yaml
-kubectl apply -f infrastructure/kubernetes/aux-aws-credentials-secret.yaml
+kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
 ```
 
-**Important**: These secret files are gitignored and should never be committed.
+**Important**: 
+- This secret file is gitignored and should never be committed
+- Only the AUX service needs AWS credentials (v2.0.0+ BFF architecture)
+- API service has no AWS access - it's a pure gateway
 
 ## Working with Environments
 
@@ -172,9 +181,9 @@ Key outputs:
 - `s3_bucket_names` - Names of created S3 buckets
 - `s3_bucket_arns` - ARNs for IAM policies
 - `ssm_parameter_names` - Parameter Store paths
-- `service_role_arns` - IAM role ARNs for applications
+- `service_role_arns` - IAM role ARNs (only AUX role used in v2.0.0+)
 - `ecr_repository_urls` - Docker image registry URLs
-- `minikube_base_credentials` - Base IAM user credentials (sensitive)
+- `minikube_base_credentials` - Base IAM user credentials (sensitive, AUX service only)
 
 ## File Structure
 

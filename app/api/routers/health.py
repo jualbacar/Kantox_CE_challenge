@@ -14,5 +14,4 @@ async def health_check():
         "service": settings.service_name,
         "environment": settings.environment,
         "timestamp": datetime.utcnow().isoformat(),
-        "region": settings.aws_region,
     }

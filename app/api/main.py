@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="Kantox API Service",
-    description="API service with S3 and SSM Parameter Store access",
-    version="1.0.0",
+    description="Public API Gateway - orchestrates requests to internal services",
+    version="2.0.0",
 )
 
 # Add CORS middleware
@@ -43,7 +43,7 @@ async def startup_event():
     """Log startup information."""
     logger.info(f"Starting {settings.service_name} service")
     logger.info(f"Environment: {settings.environment}")
-    logger.info(f"AWS Region: {settings.aws_region}")
+    logger.info("Public API Gateway - no direct AWS access, proxies to AUX service")
 
 
 @app.get("/")
@@ -51,11 +51,14 @@ async def root():
     """Root endpoint."""
     return {
         "service": "Kantox API Service",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "type": "public_gateway",
         "environment": settings.environment,
+        "architecture": "BFF - Backend for Frontend",
         "endpoints": {
             "health": "/health",
             "config": "/config",
+            "config_get": "/config/{name}",
             "storage": "/storage",
             "version": "/version",
             "docs": "/docs",

@@ -4,13 +4,21 @@ A cloud-native solution demonstrating Kubernetes deployment with CI/CD, AWS inte
 
 ## Architecture Overview
 
-Two Python FastAPI microservices deployed on Kubernetes:
+**Backend for Frontend (BFF) / API Gateway Pattern**
 
-- **API Service** - S3 + SSM access, 2 replicas
-- **Auxiliary Service** - SSM access only, 1 replica
+Two Python FastAPI microservices implementing modern cloud architecture:
+
+- **API Service** - Public gateway (no AWS access), 2 replicas
+- **AUX Service** - Internal backend (S3 + SSM access), 1 replica
+
+### Architecture Benefits:
+- **Security**: Only internal service has AWS credentials, minimizing attack surface
+- **Scalability**: Services scale independently based on workload
+- **Separation of Concerns**: Gateway handles routing, backend handles AWS operations
+- **Service Isolation**: Failures in backend don't expose credentials
 
 **Technology Stack:**
-- **Application**: Python 3.14, FastAPI
+- **Application**: Python 3.14, FastAPI, httpx
 - **Infrastructure**: Terraform, AWS (S3, SSM, ECR, IAM)
 - **Orchestration**: Kubernetes (Minikube)
 - **CI/CD**: GitHub Actions (OIDC authentication)
@@ -54,12 +62,11 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 ### 3. Configure Secrets
 
 ```bash
-# Generate AWS credentials secrets
+# Generate AWS credentials secret (for AUX service only)
 bash scripts/setup-k8s-secrets.sh
 
-# Apply secrets
-kubectl apply -f infrastructure/kubernetes/api-aws-credentials-secret.yaml
-kubectl apply -f infrastructure/kubernetes/aux-aws-credentials-secret.yaml
+# Apply secret
+kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
 
 # Create ECR pull secrets (replace <account-id> with your AWS account ID)
 ECR_PASSWORD=$(aws ecr get-login-password --region eu-west-1)
@@ -110,19 +117,17 @@ curl http://localhost:8080/docs
 | **GitHub OIDC** | [infrastructure/GITHUB_OIDC_SETUP.md](infrastructure/GITHUB_OIDC_SETUP.md) | AWS authentication setup for CI/CD |
 | **Kubernetes/ArgoCD** | [kubernetes/argocd/README.md](kubernetes/argocd/README.md) | GitOps deployment, ArgoCD setup |
 
-### Additional Documentation
-
-- [app/API_CHANGES.md](app/API_CHANGES.md) - API changes and migration guide
-- [app/PYTHON_UPGRADE.md](app/PYTHON_UPGRADE.md) - Python 3.14 compatibility notes
-
 ## Security Features
 
-- Non-root containers (UID 1000)
-- IAM role assumption for least privilege access
-- ECR image pull secrets for private registries
-- Kubernetes secrets for AWS credentials
-- GitHub OIDC for CI/CD (no static credentials)
-- Read-only root filesystem options
+- **BFF Architecture**: Only internal service has AWS access (reduced attack surface)
+- **Service Isolation**: API gateway has zero AWS credentials
+- **Non-root Containers**: All pods run as UID 1000
+- **IAM Role Assumption**: AUX service uses temporary credentials via STS
+- **Least Privilege**: Base IAM user can only assume service role
+- **ECR Image Pull Secrets**: Private registry authentication
+- **Kubernetes Secrets**: Credentials never committed to git
+- **GitHub OIDC**: CI/CD without static credentials
+- **Internal Service**: AUX service not exposed externally (ClusterIP only)
 
 ## CI/CD Pipeline
 

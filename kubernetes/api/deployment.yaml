@@ -35,33 +35,15 @@ spec:
           name: http
           protocol: TCP
         env:
-        # AWS Credentials from Secret
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: api-aws-credentials
-              key: AWS_ACCESS_KEY_ID
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: api-aws-credentials
-              key: AWS_SECRET_ACCESS_KEY
-        - name: AWS_ROLE_ARN
-          valueFrom:
-            secretKeyRef:
-              name: api-aws-credentials
-              key: AWS_ROLE_ARN
+        # AUX Service URL (internal service communication)
+        - name: AUX_SERVICE_URL
+          value: "http://aux.aux.svc.cluster.local:80"
         # Configuration from ConfigMap
         - name: ENVIRONMENT
           valueFrom:
             configMapKeyRef:
               name: api-config
               key: ENVIRONMENT
-        - name: AWS_REGION
-          valueFrom:
-            configMapKeyRef:
-              name: api-config
-              key: AWS_REGION
         - name: LOG_LEVEL
           valueFrom:
             configMapKeyRef:

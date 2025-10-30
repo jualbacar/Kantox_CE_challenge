@@ -1,4 +1,2 @@
 # AWS credentials secrets - NEVER commit these
 *-aws-credentials-secret.yaml
-api-aws-credentials-secret.yaml
-aux-aws-credentials-secret.yaml

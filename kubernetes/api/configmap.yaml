@@ -9,6 +9,5 @@ metadata:
     app.kubernetes.io/part-of: kantox-challenge
 data:
   ENVIRONMENT: "dev"
-  AWS_REGION: "eu-west-1"
   LOG_LEVEL: "INFO"
   SERVICE_NAME: "api"

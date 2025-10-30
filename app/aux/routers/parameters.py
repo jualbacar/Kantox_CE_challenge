@@ -1,14 +1,14 @@
-"""Configuration router - SSM Parameter Store integration."""
+"""Parameter Store endpoints for auxiliary service."""
 from fastapi import APIRouter, HTTPException
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from common.aws_client import ssm_client
 import logging
 
-router = APIRouter()
+router = APIRouter(prefix="/parameters")
 logger = logging.getLogger(__name__)
 
 
-@router.get("/config")
+@router.get("")
 async def list_all_parameters() -> Dict[str, Any]:
     """List all parameters stored in AWS Parameter Store."""
     try:
@@ -22,7 +22,7 @@ async def list_all_parameters() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/config/{parameter_name:path}")
+@router.get("/{parameter_name:path}")
 async def get_parameter_value(parameter_name: str) -> Dict[str, Optional[str]]:
     """Retrieve the value of a specific parameter from AWS Parameter Store."""
     try:
