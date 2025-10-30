@@ -237,7 +237,7 @@ git push
 kubectl delete -f kubernetes/argocd/
 
 # Delete namespaces
-kubectl delete namespace api aux argocd
+kubectl delete namespace argocd
 
 # Destroy AWS infrastructure
 cd infrastructure
