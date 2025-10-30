@@ -60,27 +60,17 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 ```bash
 # Generate AWS credentials secret (for AUX service only)
-bash ../scripts/setup-k8s-secrets.sh (if you still are in the infrastructure folder)
-or
-bash ./setup-k8s-secrets.sh (from ./scripts folder)
+bash ./scripts/setup-k8s-secrets.sh (from root folder)
+
+# Create microservices namespaces
+kubectl create namespace api
+kubectl create namespace aux
 
 # Apply secret
-kubectl create namespace aux
 kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
 
 # Create ECR pull secrets (replace <account-id> with your AWS account ID)
-ECR_PASSWORD=$(aws ecr get-login-password --region eu-west-1)
-kubectl create secret docker-registry ecr-registry-secret \
-  --docker-server=<account-id>.dkr.ecr.eu-west-1.amazonaws.com \
-  --docker-username=AWS \
-  --docker-password="$ECR_PASSWORD" \
-  --namespace=api
-
-kubectl create secret docker-registry ecr-registry-secret \
-  --docker-server=<account-id>.dkr.ecr.eu-west-1.amazonaws.com \
-  --docker-username=AWS \
-  --docker-password="$ECR_PASSWORD" \
-  --namespace=aux
+bash ./scripts/refresh-ecr-credentials.sh (from root folder)
 ```
 
 ### 4. Deploy Applications
