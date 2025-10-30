@@ -47,7 +47,7 @@ terraform apply -var-file=eu-west-1/dev/dev.tfvars
 
 ```bash
 # Start Minikube
-minikube start --cpus=4 --memory=8192
+minikube start
 
 # Install ArgoCD
 kubectl create namespace argocd
