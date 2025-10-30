@@ -159,10 +159,23 @@ kubectl get applications -n argocd
 
 ## Troubleshooting
 
-### Pods stuck in ImagePullBackOff
-- Verify ECR pull secrets are created in both namespaces
-- Check AWS credentials are valid
-- Ensure images exist in ECR with correct tags
+### Pods stuck in ImagePullBackOff or "authorization token has expired"
+ECR authentication tokens expire after 12 hours. Use the provided script to refresh credentials:
+
+```bash
+# Run the ECR credentials refresh script
+bash scripts/refresh-ecr-credentials.sh
+```
+
+The script will:
+- Obtain a fresh ECR authentication token from AWS
+- Update secrets in both `api` and `aux` namespaces
+- Restart deployments to pick up the new credentials
+- Provide status updates throughout the process
+
+# Repeat for aux namespace and restart deployments
+kubectl rollout restart deployment api -n api
+```
 
 ### AWS Access Denied errors
 - Verify Kubernetes secrets are applied correctly
@@ -173,6 +186,20 @@ kubectl get applications -n argocd
 - Check GitHub repository access
 - Verify application manifests are valid
 - Look at ArgoCD application events: `kubectl describe application api -n argocd`
+
+### Git push rejected (branch behind origin)
+The CI/CD workflow automatically updates Kubernetes manifest files (image tags) and pushes them back to the repository. This can cause your local branch to be behind origin when you try to push.
+
+**Solution:**
+```bash
+# Pull the latest changes with rebase
+git pull --rebase
+
+# Then push your changes
+git push
+```
+
+**Note**: The workflow updates `kubernetes/api/deployment.yaml` and `kubernetes/aux/deployment.yaml` with new image tags after each successful build.
 
 ## Clean Up
 

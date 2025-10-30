@@ -210,11 +210,21 @@ resource "aws_iam_policy" "aux_ssm_access" {
       {
         Effect = "Allow"
         Action = [
+          "ssm:DescribeParameters"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ssm:GetParameter",
           "ssm:GetParameters",
           "ssm:GetParametersByPath"
         ]
-        Resource = [for k, v in module.ssm_parameter : v.ssm_parameter_arn]
+        Resource = concat(
+          [for k, v in module.ssm_parameter : v.ssm_parameter_arn],
+          ["arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/kantox/${var.environment}/*"]
+        )
       }
     ]
   })
