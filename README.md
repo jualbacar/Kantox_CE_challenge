@@ -65,6 +65,7 @@ or
 bash ./setup-k8s-secrets.sh (from ./scripts folder)
 
 # Apply secret
+kubectl create namespace aux
 kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
 
 # Create ECR pull secrets (replace <account-id> with your AWS account ID)
