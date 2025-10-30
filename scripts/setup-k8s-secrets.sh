@@ -3,9 +3,9 @@ set -e
 
 echo "🔐 Generating Kubernetes secrets from Terraform outputs..."
 
-SCRIPT_DIR="$(dirname "$0")"
-INFRA_DIR="$SCRIPT_DIR/../infrastructure"
-K8S_DIR="$SCRIPT_DIR/../kubernetes"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INFRA_DIR="$(cd "$SCRIPT_DIR/../infrastructure" && pwd)"
+K8S_DIR="$(cd "$SCRIPT_DIR/../kubernetes" && pwd)"
 
 cd "$INFRA_DIR"
 
