@@ -26,27 +26,24 @@ Two Python FastAPI microservices implementing modern cloud architecture:
 
 ## Prerequisites
 
-- Docker Desktop or Docker Engine
-- Minikube
-- kubectl
-- AWS CLI configured with credentials
+- Docker, Minikube, kubectl
+- AWS CLI with credentials configured (`aws configure`)
 - Terraform >= 1.5.0
-- Git
 
 ## Quick Start
 
-### 1. Deploy AWS Infrastructure
+### 1. Deploy AWS Infrastructure (don't forget about the AWS credentials setup)
 
 ```bash
 cd infrastructure
-terraform init
-terraform workspace new dev
+terraform init                    # (one-time setup)
+terraform workspace new dev       # (one-time setup)
 terraform apply -var-file=eu-west-1/dev/dev.tfvars
 ```
 
 📚 **See**: [Infrastructure Documentation](infrastructure/README.md)
 
-### 2. Setup Kubernetes
+### 2. Setup Kubernetes (one-time setup)
 
 ```bash
 # Start Minikube
