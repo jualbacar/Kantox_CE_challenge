@@ -2,12 +2,13 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'app/**'
       - '.github/workflows/ci-cd.yml'
   pull_request:
     branches: [main]
+  workflow_dispatch:  # Allow manual trigger for initial image build
 
 env:
   AWS_REGION: eu-west-1
