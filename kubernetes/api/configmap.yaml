@@ -11,3 +11,4 @@ data:
   ENVIRONMENT: "dev"
   LOG_LEVEL: "INFO"
   SERVICE_NAME: "api"
+  AWS_REGION: "eu-west-1"

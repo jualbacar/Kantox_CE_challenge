@@ -54,6 +54,11 @@ spec:
             configMapKeyRef:
               name: api-config
               key: SERVICE_NAME
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: AWS_REGION
         resources:
           requests:
             cpu: 100m
