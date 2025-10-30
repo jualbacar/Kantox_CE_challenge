@@ -241,7 +241,7 @@ kubectl delete namespace argocd
 
 # Destroy AWS infrastructure
 cd infrastructure
-terraform destroy -var-file=eu-west-1/dev/dev.tfvars
+terraform destroy -var-file=eu-west-1/dev/dev.tfvars (ECR resources will fail because they contain images and can not be deleted without empty them first)
 
 # Stop Minikube
 minikube stop
