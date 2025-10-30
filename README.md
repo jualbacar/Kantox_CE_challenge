@@ -43,7 +43,7 @@ terraform apply -var-file=eu-west-1/dev/dev.tfvars
 
 📚 **See**: [Infrastructure Documentation](infrastructure/README.md)
 
-### 2. Build Initial Docker Images
+### 2. Build Initial Docker Images (first time setup)
 
 After deploying infrastructure, trigger the CI/CD pipeline to build and push initial images to ECR:
 
@@ -53,9 +53,9 @@ After deploying infrastructure, trigger the CI/CD pipeline to build and push ini
 3. Click "Run workflow" → "Run workflow"
 4. Wait for completion (~2-3 minutes)
 
-This step is required on first deployment as ECR repositories are initially empty.
+This step is required on the first deployment as ECR repositories are initially empty.
 
-### 3. Setup Kubernetes (one-time setup)
+### 3. Setup Kubernetes (first time setup)
 
 ```bash
 # Start Minikube
@@ -68,7 +68,7 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 📚 **See**: [ArgoCD Setup Guide](kubernetes/argocd/README.md)
 
-### 4. Configure Secrets
+### 4. Configure Secrets (first time setup)
 
 ```bash
 # Generate AWS credentials secret (for AUX service only)
@@ -81,6 +81,7 @@ kubectl create namespace aux
 # Apply secret
 kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
 
+# Note: ECR authentication tokens expire after 12 hours, requiring periodic refresh.
 # Create ECR pull secrets (replace <account-id> with your AWS account ID)
 bash ./scripts/refresh-ecr-credentials.sh (from root folder)
 ```
