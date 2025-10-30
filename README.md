@@ -170,8 +170,18 @@ The script will:
 - Restart deployments to pick up the new credentials
 - Provide status updates throughout the process
 
-# Repeat for aux namespace and restart deployments
-kubectl rollout restart deployment api -n api
+### Corporate proxy/SSL certificate issues
+If images fail to pull due to certificate errors (e.g., ArgoCD dex image), pull the image locally and load it into minikube:
+
+```bash
+# Pull image using host Docker (which trusts corporate CA)
+docker pull ghcr.io/dexidp/dex:v2.43.0
+
+# Load into minikube
+minikube image load ghcr.io/dexidp/dex:v2.43.0
+
+# Patch deployment to use local image
+kubectl patch deployment argocd-dex-server -n argocd -p '{"spec":{"template":{"spec":{"containers":[{"name":"dex","imagePullPolicy":"IfNotPresent"}]}}}}'
 ```
 
 ### AWS Access Denied errors
