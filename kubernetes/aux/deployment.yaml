@@ -28,7 +28,7 @@ spec:
       - name: ecr-registry-secret
       containers:
       - name: aux
-        image: 035895024082.dkr.ecr.eu-west-1.amazonaws.com/kantox-aux:sha-4e7add6
+        image: 035895024082.dkr.ecr.eu-west-1.amazonaws.com/kantox-aux:sha-0587d63
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
