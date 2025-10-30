@@ -60,7 +60,9 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 ```bash
 # Generate AWS credentials secret (for AUX service only)
-bash scripts/setup-k8s-secrets.sh
+bash ../scripts/setup-k8s-secrets.sh (if you still are in the infrastructure folder)
+or
+bash ./setup-k8s-secrets.sh (from ./scripts folder)
 
 # Apply secret
 kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
