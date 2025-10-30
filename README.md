@@ -43,7 +43,19 @@ terraform apply -var-file=eu-west-1/dev/dev.tfvars
 
 📚 **See**: [Infrastructure Documentation](infrastructure/README.md)
 
-### 2. Setup Kubernetes (one-time setup)
+### 2. Build Initial Docker Images
+
+After deploying infrastructure, trigger the CI/CD pipeline to build and push initial images to ECR:
+
+**On GitHub UI**
+1. Go to the [Actions tab](../../actions) in GitHub
+2. Select "CI/CD Pipeline" workflow
+3. Click "Run workflow" → "Run workflow"
+4. Wait for completion (~2-3 minutes)
+
+This step is required on first deployment as ECR repositories are initially empty.
+
+### 3. Setup Kubernetes (one-time setup)
 
 ```bash
 # Start Minikube
@@ -56,7 +68,7 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 📚 **See**: [ArgoCD Setup Guide](kubernetes/argocd/README.md)
 
-### 3. Configure Secrets
+### 4. Configure Secrets
 
 ```bash
 # Generate AWS credentials secret (for AUX service only)
@@ -73,7 +85,7 @@ kubectl apply -f kubernetes/aux-aws-credentials-secret.yaml
 bash ./scripts/refresh-ecr-credentials.sh (from root folder)
 ```
 
-### 4. Deploy Applications
+### 5. Deploy Applications
 
 ```bash
 # Deploy via ArgoCD
@@ -83,7 +95,7 @@ kubectl apply -f kubernetes/argocd/aux-application.yaml
 
 ArgoCD will automatically sync and deploy both services.
 
-### 5. Access Services
+### 6. Access Services
 
 ```bash
 # Port-forward to API service
@@ -94,6 +106,22 @@ curl http://localhost:8080/health
 curl http://localhost:8080/storage
 curl http://localhost:8080/docs
 ```
+
+### Testing Continuous Deployment
+
+To test the full CI/CD pipeline and see automatic deployments in action:
+
+```bash
+# Make a small change to any file in app/ directory
+echo "# Test change" >> app/README.md
+
+# Commit and push to main branch
+git add app/README.md
+git commit -m "test: trigger CI/CD pipeline"
+git push
+```
+
+The workflow will automatically build new images, push them to ECR, and ArgoCD will sync the updated deployments to your cluster. Monitor progress in the [GitHub Actions tab](../../actions).
 
 ## Documentation
 
