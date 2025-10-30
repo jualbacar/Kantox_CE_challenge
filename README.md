@@ -100,7 +100,7 @@ ArgoCD will automatically sync and deploy both services.
 
 ```bash
 # Port-forward to API service
-kubectl port-forward -n api service/api 8080:80
+kubectl port-forward -n api service/api 8080:80 > /dev/null 2>&1 &
 
 # Test endpoints
 curl http://localhost:8080/health
