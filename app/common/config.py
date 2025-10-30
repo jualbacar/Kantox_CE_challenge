@@ -12,5 +12,4 @@ class Settings:
         self.log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
 
-# Global settings instance
 settings = Settings()

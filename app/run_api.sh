@@ -1,5 +1,4 @@
 #!/bin/bash
-# Script to run the API service locally
 
 export SERVICE_NAME=api
 export ENVIRONMENT=dev

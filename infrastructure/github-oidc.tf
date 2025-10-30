@@ -1,12 +1,7 @@
-# GitHub OIDC Provider and IAM Role for GitHub Actions
-# This allows GitHub Actions to authenticate to AWS without static credentials
-
-# Data source to get the GitHub OIDC provider thumbprint
 data "tls_certificate" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Create the OIDC identity provider for GitHub Actions
 resource "aws_iam_openid_connect_provider" "github_actions" {
   url = "https://token.actions.githubusercontent.com"
 
@@ -14,7 +9,6 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
     "sts.amazonaws.com"
   ]
 
-  # Thumbprint from the TLS certificate
   thumbprint_list = [
     data.tls_certificate.github.certificates[0].sha1_fingerprint
   ]
@@ -27,7 +21,6 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   }
 }
 
-# IAM policy document for GitHub Actions trust relationship
 data "aws_iam_policy_document" "github_actions_assume_role" {
   statement {
     effect = "Allow"
@@ -48,13 +41,11 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      # Allow only your repository - update with your GitHub org/username and repo
-      values = ["repo:${var.github_org}/${var.github_repo}:*"]
+      values   = ["repo:${var.github_org}/${var.github_repo}:*"] # Repository restriction for security
     }
   }
 }
 
-# IAM role for GitHub Actions
 resource "aws_iam_role" "github_actions" {
   name               = "${var.project_name}-github-actions-${var.environment}"
   assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
@@ -68,7 +59,6 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# Policy for ECR access (push images)
 data "aws_iam_policy_document" "github_actions_ecr" {
   statement {
     effect = "Allow"
@@ -111,13 +101,11 @@ resource "aws_iam_policy" "github_actions_ecr" {
   }
 }
 
-# Attach ECR policy to the GitHub Actions role
 resource "aws_iam_role_policy_attachment" "github_actions_ecr" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions_ecr.arn
 }
 
-# Output the role ARN for use in GitHub Actions
 output "github_actions_role_arn" {
   description = "ARN of the IAM role for GitHub Actions"
   value       = aws_iam_role.github_actions.arn

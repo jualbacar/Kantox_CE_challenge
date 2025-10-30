@@ -12,11 +12,9 @@ class AuxServiceClient:
     """Client for making requests to the Auxiliary service (internal AWS operations)."""
     
     def __init__(self):
-        # Kubernetes DNS: service-name.namespace.svc.cluster.local
-        # Or use environment variable for flexibility
         self.base_url = os.getenv(
             'AUX_SERVICE_URL',
-            'http://aux.aux.svc.cluster.local:80'
+            'http://aux.aux.svc.cluster.local:80'  # Kubernetes DNS
         )
         self.timeout = httpx.Timeout(10.0, connect=5.0)
         logger.info(f"AuxServiceClient initialized with base_url: {self.base_url}")
@@ -33,7 +31,6 @@ class AuxServiceClient:
                 
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error from AUX service: {e.response.status_code} - {e.response.text}")
-            # Propagate the error from AUX service
             raise HTTPException(
                 status_code=e.response.status_code,
                 detail=f"AUX service error: {e.response.text}"
@@ -67,11 +64,9 @@ class AuxServiceClient:
     
     async def get_parameter(self, parameter_name: str) -> Dict[str, Optional[str]]:
         """Get specific SSM parameter value via AUX service."""
-        # Ensure parameter name starts with / for proper path handling
         if not parameter_name.startswith('/'):
             parameter_name = f'/{parameter_name}'
         return await self._make_request("GET", f"/parameters{parameter_name}")
 
 
-# Singleton instance
 aux_client = AuxServiceClient()

@@ -1,25 +1,20 @@
 #!/bin/bash
-
 #
-# refresh-ecr-credentials.sh
+# Refreshes ECR registry secrets in Kubernetes namespaces.
+# ECR authentication tokens expire after 12 hours, requiring periodic refresh.
 #
-# Refreshes ECR registry secrets in Kubernetes namespaces
-# ECR authentication tokens expire after 12 hours, requiring periodic refresh
-#
-# NOTE: This script is intended for local Minikube development.
-# For production EKS deployments, use IAM Roles for Service Accounts (IRSA) instead:
+# NOTE: For local Minikube development only.
+# Production EKS: use IAM Roles for Service Accounts (IRSA)
 # https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html
 #
 
 set -e
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Configuration
 AWS_REGION="${AWS_REGION:-eu-west-1}"
 NAMESPACES=("api" "aux")
 
@@ -28,7 +23,6 @@ echo "🔑 ECR Credentials Refresh Script"
 echo "=================================="
 echo ""
 
-# Check prerequisites
 if ! command -v aws &> /dev/null; then
     echo -e "${RED}❌ Error: AWS CLI is not installed${NC}"
     exit 1
@@ -39,14 +33,12 @@ if ! command -v kubectl &> /dev/null; then
     exit 1
 fi
 
-# Check if kubectl can connect to cluster
 if ! kubectl cluster-info &> /dev/null; then
     echo -e "${RED}❌ Error: Cannot connect to Kubernetes cluster${NC}"
     echo "   Make sure Minikube is running: minikube status"
     exit 1
 fi
 
-# Get AWS account ID
 echo "📋 Getting AWS account information..."
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
 if [ -z "$AWS_ACCOUNT_ID" ]; then
@@ -59,7 +51,6 @@ echo -e "${GREEN}✓${NC} AWS Account: ${AWS_ACCOUNT_ID}"
 echo -e "${GREEN}✓${NC} ECR Registry: ${ECR_REGISTRY}"
 echo ""
 
-# Get fresh ECR token
 echo "🔐 Obtaining fresh ECR authentication token..."
 ECR_PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION" 2>/dev/null)
 if [ -z "$ECR_PASSWORD" ]; then
@@ -69,20 +60,16 @@ fi
 echo -e "${GREEN}✓${NC} ECR token obtained"
 echo ""
 
-# Update secrets in each namespace
 for NAMESPACE in "${NAMESPACES[@]}"; do
     echo "🔄 Updating ECR secret in namespace: ${NAMESPACE}"
     
-    # Check if namespace exists
     if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
         echo -e "${YELLOW}⚠${NC}  Namespace ${NAMESPACE} does not exist, skipping..."
         continue
     fi
     
-    # Delete existing secret (ignore if not found)
     kubectl delete secret ecr-registry-secret -n "$NAMESPACE" --ignore-not-found > /dev/null 2>&1
     
-    # Create new secret
     if kubectl create secret docker-registry ecr-registry-secret \
         --docker-server="$ECR_REGISTRY" \
         --docker-username=AWS \
@@ -98,7 +85,6 @@ echo ""
 echo "🔄 Restarting deployments to pick up new secrets..."
 echo ""
 
-# Restart deployments
 for NAMESPACE in "${NAMESPACES[@]}"; do
     if kubectl get namespace "$NAMESPACE" &> /dev/null; then
         DEPLOYMENT_NAME="$NAMESPACE"

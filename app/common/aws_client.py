@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_aws_session():
-    """
-    Get AWS session with assumed role if AWS_ROLE_ARN is set.
-    Falls back to default credentials if no role is specified.
-    """
+    """Get AWS session with assumed role if AWS_ROLE_ARN is set."""
     role_arn = os.getenv('AWS_ROLE_ARN')
     
     if role_arn:
@@ -111,6 +108,5 @@ class SSMClient:
             raise
 
 
-# Singleton instances
 s3_client = S3Client()
 ssm_client = SSMClient()

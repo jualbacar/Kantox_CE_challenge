@@ -1,11 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-# ============================================================================
-# BASE IAM USER - For Minikube pods to assume service roles
-# ============================================================================
-# This user has minimal permissions - only to assume service-specific roles
-# Credentials will be stored in Kubernetes secrets and injected into pods
-
 resource "aws_iam_user" "minikube_base" {
   name = "${var.project_name}-minikube-base-${var.environment}"
 
@@ -18,7 +12,6 @@ resource "aws_iam_access_key" "minikube_base" {
   user = aws_iam_user.minikube_base.name
 }
 
-# Policy allowing base user to assume service roles
 resource "aws_iam_policy" "assume_service_roles" {
   name        = "${var.project_name}-assume-service-roles-${var.environment}"
   description = "Allow assuming service-specific IAM roles"
@@ -45,13 +38,8 @@ resource "aws_iam_user_policy_attachment" "minikube_base_assume" {
   policy_arn = aws_iam_policy.assume_service_roles.arn
 }
 
-# ============================================================================
-# IAM ROLES - Service-specific roles with actual permissions
-# ============================================================================
-
-# IAM role for API service with S3 access
-# For Minikube: Base IAM user can assume this role
-# For EKS: Would add OIDC trust policy (commented out for future use)
+# DEPRECATED: API service is now a gateway with no AWS access (v2.0.0+)
+# Kept for backward compatibility
 resource "aws_iam_role" "api_namespace_role" {
   name = "${var.project_name}-api-role-${var.environment}"
 
@@ -73,7 +61,6 @@ resource "aws_iam_role" "api_namespace_role" {
   })
 }
 
-# S3 access policy for API service
 resource "aws_iam_policy" "api_s3_access" {
   name        = "${var.project_name}-api-s3-access-${var.environment}"
   description = "Allow API service to access S3 buckets"
@@ -107,7 +94,6 @@ resource "aws_iam_policy" "api_s3_access" {
   tags = var.tags
 }
 
-# SSM parameter access policy for API service
 resource "aws_iam_policy" "api_ssm_access" {
   name        = "${var.project_name}-api-ssm-access-${var.environment}"
   description = "Allow API service to read SSM parameters"
@@ -140,10 +126,6 @@ resource "aws_iam_role_policy_attachment" "api_ssm_attach" {
   policy_arn = aws_iam_policy.api_ssm_access.arn
 }
 
-# IAM role for AUX service (has both S3 and SSM access)
-# This is the internal service that handles all AWS operations
-# For Minikube: Base IAM user can assume this role
-# For EKS: Would add OIDC trust policy (commented out for future use)
 resource "aws_iam_role" "aux_namespace_role" {
   name = "${var.project_name}-aux-role-${var.environment}"
 
@@ -165,7 +147,6 @@ resource "aws_iam_role" "aux_namespace_role" {
   })
 }
 
-# S3 access policy for AUX service
 resource "aws_iam_policy" "aux_s3_access" {
   name        = "${var.project_name}-aux-s3-access-${var.environment}"
   description = "Allow AUX service to access S3 buckets"
@@ -199,7 +180,6 @@ resource "aws_iam_policy" "aux_s3_access" {
   tags = var.tags
 }
 
-# SSM parameter access policy for AUX service
 resource "aws_iam_policy" "aux_ssm_access" {
   name        = "${var.project_name}-aux-ssm-access-${var.environment}"
   description = "Allow AUX service to read SSM parameters"
@@ -241,10 +221,6 @@ resource "aws_iam_role_policy_attachment" "aux_ssm_attach" {
   role       = aws_iam_role.aux_namespace_role.name
   policy_arn = aws_iam_policy.aux_ssm_access.arn
 }
-
-# ============================================================================
-# OUTPUTS
-# ============================================================================
 
 output "minikube_base_credentials" {
   description = "Base credentials for Minikube (store in K8s secret)"

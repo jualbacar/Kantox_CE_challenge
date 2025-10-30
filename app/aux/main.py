@@ -7,7 +7,6 @@ from common.config import settings
 from common.version import router as version_router
 from aux.routers import health, parameters, s3
 
-# Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -15,14 +14,12 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
 app = FastAPI(
     title="Kantox Auxiliary Service",
     description="Internal service handling AWS operations (S3 + SSM)",
     version="2.0.0",
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers - Internal service with AWS access
 app.include_router(health.router, tags=["health"])
 app.include_router(parameters.router, tags=["parameters"])
 app.include_router(s3.router, tags=["s3"])
@@ -40,7 +36,6 @@ app.include_router(version_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """Log startup information."""
     logger.info(f"Starting {settings.service_name} service")
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"AWS Region: {settings.aws_region}")
@@ -49,7 +44,6 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    """Root endpoint."""
     return {
         "service": "Kantox Auxiliary Service",
         "version": "2.0.0",

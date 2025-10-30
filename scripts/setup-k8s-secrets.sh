@@ -3,18 +3,15 @@ set -e
 
 echo "🔐 Generating Kubernetes secrets from Terraform outputs..."
 
-# Get credentials from Terraform output
 SCRIPT_DIR="$(dirname "$0")"
 INFRA_DIR="$SCRIPT_DIR/../infrastructure"
 K8S_DIR="$SCRIPT_DIR/../kubernetes"
 
 cd "$INFRA_DIR"
 
-# Check if using workspaces or regular state file
 if [ -f terraform.tfstate ]; then
   STATE_FILE="terraform.tfstate"
 elif [ -d terraform.tfstate.d ]; then
-  # Using workspaces - try to detect current workspace
   WORKSPACE=$(terraform workspace show 2>/dev/null || echo "")
   if [ -n "$WORKSPACE" ] && [ -f "terraform.tfstate.d/$WORKSPACE/terraform.tfstate" ]; then
     STATE_FILE="terraform.tfstate.d/$WORKSPACE/terraform.tfstate"
@@ -43,7 +40,6 @@ fi
 ACCESS_KEY=$(echo "$CREDS" | jq -r '.access_key_id')
 SECRET_KEY=$(echo "$CREDS" | jq -r '.secret_access_key')
 
-# Get role ARN (only AUX service needs AWS access now)
 ROLE_ARNS=$(terraform output -json service_role_arns 2>/dev/null)
 AUX_ROLE_ARN=$(echo "$ROLE_ARNS" | jq -r '.aux_role_arn')
 
@@ -51,7 +47,6 @@ echo "✅ Credentials retrieved"
 echo "   AUX Role: $AUX_ROLE_ARN"
 echo "   Note: API service no longer requires AWS credentials (uses AUX service internally)"
 
-# Generate secret manifests
 mkdir -p "$K8S_DIR"
 
 echo ""

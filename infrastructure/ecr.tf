@@ -1,6 +1,3 @@
-# Amazon ECR Repositories for Docker images
-
-# ECR Repository for API service
 resource "aws_ecr_repository" "api" {
   name                 = "${var.project_name}-api"
   image_tag_mutability = "MUTABLE"
@@ -22,7 +19,6 @@ resource "aws_ecr_repository" "api" {
   }
 }
 
-# ECR Repository for Auxiliary service
 resource "aws_ecr_repository" "aux" {
   name                 = "${var.project_name}-aux"
   image_tag_mutability = "MUTABLE"
@@ -44,7 +40,6 @@ resource "aws_ecr_repository" "aux" {
   }
 }
 
-# Lifecycle policy to keep only the last N images
 resource "aws_ecr_lifecycle_policy" "api" {
   repository = aws_ecr_repository.api.name
 
@@ -83,7 +78,6 @@ resource "aws_ecr_lifecycle_policy" "aux" {
   })
 }
 
-# Outputs
 output "ecr_repository_api_url" {
   description = "URL of the API ECR repository"
   value       = aws_ecr_repository.api.repository_url

@@ -35,15 +35,13 @@ variable "ssm_parameters" {
     type  = string
     value = string
   }))
-  # Note: Individual parameter values are marked sensitive in the module outputs
-  # Cannot mark this as sensitive because it's used in for_each
+  # Cannot mark as sensitive: used in for_each expressions
 }
 
-# GitHub-specific variables for OIDC authentication in CI/CD
 variable "github_org" {
   description = "GitHub organization or username"
   type        = string
-  default     = "jualbacar" # Update with your GitHub username/org
+  default     = "jualbacar"
 }
 
 variable "github_repo" {

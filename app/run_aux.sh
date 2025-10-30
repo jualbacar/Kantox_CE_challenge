@@ -1,5 +1,4 @@
 #!/bin/bash
-# Script to run the Auxiliary service locally
 
 export SERVICE_NAME=aux
 export ENVIRONMENT=dev

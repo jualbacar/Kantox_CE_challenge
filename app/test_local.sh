@@ -1,12 +1,10 @@
 #!/bin/bash
-# Local testing script for both services
 
 echo "==================================="
 echo "Kantox Services Local Testing"
 echo "==================================="
 echo ""
 
-# Test if services are running
 echo "1. Testing API Service (port 8080)..."
 if curl -s http://localhost:8080/health > /dev/null 2>&1; then
     echo "   ✓ API Service is running"
